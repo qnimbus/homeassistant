@@ -33,6 +33,7 @@ blueprint:
       <details>
       <summary>Changelog</summary>
 
+      - **2026-10-30**: fixed dimming (`lights: dim`): brightness is now converted with 255 instead of 254; scrolling down no longer raises a light that sits below the minimum brightness; a light without a known brightness no longer causes a template error.
       - **2026-10-30**: renamed to "Remote control IKEA Bilresa scroll wheel" (file renamed to `remote_control_ikea_bilresa_scroll_wheel.yaml`; `source_url` and README updated).
       - **2026-10-30**: added a collapsible setup note with steps for enabling the nine `current_switch_position_1..9` sensors, needed for scroll wheel use in `instant` mode.
       - **2026-10-30**: forked from jhol-byte's 2026-04-06 version; added `source_url` so it can be imported from this repository.
@@ -738,15 +739,18 @@ action:
                                   value_template: >-
                                     {{ is_state(repeat.item, 'on') 
                                     }}
-                              then:                          
+                              then:
+                                # brightness attribute is 0..255; unknown (None) counts as 0 so that scrolling down is a no-op instead of an error
+                                - variables:
+                                    current_pct: "{{ (state_attr(repeat.item, 'brightness') | float(0)) * 100 / 255 }}"
                                 - action: light.turn_on
                                   target:
                                     entity_id: "{{ repeat.item }}"
                                   data:
+                                    # scrolling down never goes below <Minimum brightness>: the step is clamped to the distance above it (0 when at or below it)
                                     brightness_step_pct: >-
                                             {{ iif(scroll_direction == 'right', scroll_clicks * var_dim_step_pct,
-                                            -1*([scroll_clicks * var_dim_step_pct, state_attr(repeat.item, 'brightness')*100/254
-                                             - var_min_pct]|min)) 
+                                            -1*([scroll_clicks * var_dim_step_pct, [current_pct - var_min_pct, 0]|max]|min))
                                             }}
                                     transition: "{{ var_light_transition_duration }}"
                               else:
