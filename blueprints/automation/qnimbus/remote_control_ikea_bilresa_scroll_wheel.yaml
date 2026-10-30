@@ -37,6 +37,7 @@ blueprint:
 
       - **2026-10-30**: the color temperature and color hue scroll modes no longer need the helper scripts `script.light_color_temp_helper` and `script.light_color_hs_helper`: their logic is built into the blueprint, so a fresh import works without any extra setup. The behaviour is the same, except that scrolling the hue on a light without a known color (e.g. one that is off) now starts at hue 0 instead of raising a template error; the saturation sent to the light is now kept within 0..100, so a <Color saturation> of 0 no longer produces an invalid value. The scripts are no longer used by this blueprint; you can keep or delete them.
       - **2026-10-30**: ⚠️ **may break existing automations:** the remote's entities are now detected with stricter patterns that must match the end of the entity ID. A device name containing a number (e.g. "Bilresa 1") no longer makes every entity match the same channel, which silently disabled that channel. Entity IDs that end in `_<1-9>` (optionally followed by HA's `_<number>` duplicate suffix, e.g. `button_1_2`) keep working. Entity IDs that you renamed so that text follows the button number (e.g. `..._button_1_left`) are no longer found. Rename them back to end with the button number.
+      - **2026-10-30**: fixed the auto reset of `input_select` helpers: channels without a scroll wheel mode `input_select` are now skipped, instead of making the run fail with an empty target (which stopped the button or scroll action that triggered it). Also, a state change without a previous or new state (e.g. a newly created entity) no longer causes an error in the start condition.
       - **2026-10-30**: scroll wheel `instant` mode now falls back to `relaxed` for a channel when the remote's `current_switch_position` sensors are missing or disabled, instead of silently doing nothing. The check only runs for `instant` scroll triggers, not for button clicks.
       - **2026-10-30**: fixed dimming (`lights: dim`): brightness is now converted with 255 instead of 254; scrolling down no longer raises a light that sits below the minimum brightness; a light without a known brightness no longer causes a template error.
       - **2026-10-30**: ⚠️ **may break existing automations:** renamed to "Remote control IKEA Bilresa scroll wheel" (file renamed to `remote_control_ikea_bilresa_scroll_wheel.yaml`; `source_url` and README updated). Automations that were created from the old file `ikea_bilresa_scroll_wheel.yaml` of this repository must be pointed to the new blueprint.
@@ -577,7 +578,9 @@ trigger:
 condition:
   - condition: template
     value_template: >-
-      {{ trigger.event.data.old_state.state != 'unavailable' 
+      {{ trigger.event.data.old_state is not none
+         and trigger.event.data.new_state is not none
+         and trigger.event.data.old_state.state != 'unavailable'
          and trigger.event.data.new_state.state != 'unavailable'
       }}
 action:
@@ -610,9 +613,12 @@ action:
           - "ch2"
           - "ch3"
         sequence:
-          - action: input_select.select_first
-            target:
-              entity_id: "{{ vars['scroll_wheel_mode_dynamic_' ~ repeat.item ] }}"      
+          # only channels that have a <Scroll wheel mode input_select> configured
+          - if: "{{ ((vars['scroll_wheel_mode_dynamic_' ~ repeat.item] or '') | length) > 0 }}"
+            then:
+              - action: input_select.select_first
+                target:
+                  entity_id: "{{ vars['scroll_wheel_mode_dynamic_' ~ repeat.item] }}"
   - choose:
       # button click
       - conditions:
