@@ -8,7 +8,7 @@ blueprint:
       Changelog entries marked ⚠️ may break automations that already use this blueprint. Check them before updating.
 
       <details>
-      <summary>⚠️ Setup: enable the 9 hidden sensors (needed for <code>instant</code> scroll wheel mode)</summary>
+      <summary>❗Setup: enable the 9 hidden sensors (needed for <code>instant</code> scroll wheel mode)</summary>
 
       The remote has nine sensors that are **disabled by default**:
 
@@ -35,6 +35,7 @@ blueprint:
       <details>
       <summary>Changelog</summary>
 
+      - **2026-10-30**: the color temperature and color hue scroll modes no longer need the helper scripts `script.light_color_temp_helper` and `script.light_color_hs_helper`: their logic is built into the blueprint, so a fresh import works without any extra setup. The behaviour is the same, except that scrolling the hue on a light without a known color (e.g. one that is off) now starts at hue 0 instead of raising a template error. The scripts are no longer used by this blueprint; you can keep or delete them.
       - **2026-10-30**: ⚠️ **may break existing automations:** the remote's entities are now detected with stricter patterns that must match the end of the entity ID. A device name containing a number (e.g. "Bilresa 1") no longer makes every entity match the same channel, which silently disabled that channel. Entity IDs that end in `_<1-9>` (optionally followed by HA's `_<number>` duplicate suffix, e.g. `button_1_2`) keep working. Entity IDs that you renamed so that text follows the button number (e.g. `..._button_1_left`) are no longer found. Rename them back to end with the button number.
       - **2026-10-30**: scroll wheel `instant` mode now falls back to `relaxed` for a channel when the remote's `current_switch_position` sensors are missing or disabled, instead of silently doing nothing. The check only runs for `instant` scroll triggers, not for button clicks.
       - **2026-10-30**: fixed dimming (`lights: dim`): brightness is now converted with 255 instead of 254; scrolling down no longer raises a light that sits below the minimum brightness; a light without a known brightness no longer causes a template error.
@@ -781,30 +782,36 @@ action:
                         value_template: "{{ scroll_wheel_mode == 'lights: color temp only' or (scroll_wheel_mode == 'lights: color temp and color hue' and state_attr(repeat.item, 'color_temp_kelvin') is not none ) }}"
                       sequence:
                         # scroll wheel mode: lights: color temp
-                        - action: script.light_color_temp_helper
+                        - action: light.turn_on
+                          target:
+                            entity_id: "{{ repeat.item }}"
                           data:
-                            mode: >-
-                              {{ iif(scroll_direction == 'left', 'down', 'up')
-                              }}
-                            min_color_temp: "{{ var_min_color_temp }}"
-                            max_color_temp: "{{ var_max_color_temp }}"
-                            color_temp_step: "{{ var_color_temp_step * scroll_clicks }}"
-                            target_light: "{{ repeat.item }}"
-                            light_transition_duration: "{{ var_light_transition_duration }}"
+                            transition: "{{ var_light_transition_duration }}"
+                            # step the color temperature and keep it between <Minimum> and <Maximum> color temperature;
+                            # a light without a known color temperature starts at the maximum
+                            color_temp_kelvin: >-
+                              {% set current = state_attr(repeat.item, 'color_temp_kelvin') %}
+                              {% if current is none %}
+                                {{ var_max_color_temp }}
+                              {% else %}
+                                {% set new_value = current + iif(scroll_direction == 'left', -1, 1) * var_color_temp_step * scroll_clicks %}
+                                {{ [[new_value, var_max_color_temp] | min, var_min_color_temp] | max }}
+                              {% endif %}
                       # scroll wheel mode: <lights: color hue>
                     - conditions:
                       - condition: template
                         value_template: "{{ scroll_wheel_mode == 'lights: color hue only' or (scroll_wheel_mode == 'lights: color temp and color hue' and state_attr(repeat.item, 'color_temp_kelvin') is none ) }}"
                       sequence:
-                        - action: script.light_color_hs_helper
+                        - action: light.turn_on
+                          target:
+                            entity_id: "{{ repeat.item }}"
                           data:
-                            target_light: "{{ repeat.item }}"
-                            light_transition_duration: "{{ var_light_transition_duration }}"
-                            color_hue_step: "{{ var_color_hue_step * scroll_clicks }}"
-                            color_saturation: "{{ var_color_saturation }}"
-                            mode: >-
-                              {{ iif(scroll_direction == 'left', 'down', 'up')
-                              }}
+                            transition: "{{ var_light_transition_duration }}"
+                            # step the hue (wraps around at 0/360); a light without a known color starts at hue 0
+                            hs_color: >-
+                              {% set current_hue = (state_attr(repeat.item, 'hs_color') or [0, 0])[0] %}
+                              {{ [(current_hue + iif(scroll_direction == 'left', -1, 1) * var_color_hue_step * scroll_clicks) % 360,
+                                  var_color_saturation - 1] }}
                       # scroll wheel mode: <media: volume>
                     - conditions:
                       - condition: template
