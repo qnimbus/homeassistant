@@ -37,6 +37,7 @@ blueprint:
 
       - **2026-10-30**: the color temperature and color hue scroll modes no longer need the helper scripts `script.light_color_temp_helper` and `script.light_color_hs_helper`: their logic is built into the blueprint, so a fresh import works without any extra setup. The behaviour is the same, except that scrolling the hue on a light without a known color (e.g. one that is off) now starts at hue 0 instead of raising a template error; the saturation sent to the light is now kept within 0..100, so a <Color saturation> of 0 no longer produces an invalid value. The scripts are no longer used by this blueprint; you can keep or delete them.
       - **2026-10-30**: ⚠️ **may break existing automations:** the remote's entities are now detected with stricter patterns that must match the end of the entity ID. A device name containing a number (e.g. "Bilresa 1") no longer makes every entity match the same channel, which silently disabled that channel. Entity IDs that end in `_<1-9>` (optionally followed by HA's `_<number>` duplicate suffix, e.g. `button_1_2`) keep working. Entity IDs that you renamed so that text follows the button number (e.g. `..._button_1_left`) are no longer found. Rename them back to end with the button number.
+      - **2026-10-30**: scroll wheel targets of the wrong type for the active mode are now skipped: lights only react to the `lights:` modes and media players only to `media: volume control`. Useful for a channel with both lights and media players (e.g. with the `dynamic` mode), where the other type used to receive service calls that only fit one type.
       - **2026-10-30**: fixed the auto reset of `input_select` helpers: channels without a scroll wheel mode `input_select` are now skipped, instead of making the run fail with an empty target (which stopped the button or scroll action that triggered it). Also, a state change without a previous or new state (e.g. a newly created entity) no longer causes an error in the start condition.
       - **2026-10-30**: scroll wheel `instant` mode now falls back to `relaxed` for a channel when the remote's `current_switch_position` sensors are missing or disabled, instead of silently doing nothing. The check only runs for `instant` scroll triggers, not for button clicks.
       - **2026-10-30**: fixed dimming (`lights: dim`): brightness is now converted with 255 instead of 254; scrolling down no longer raises a light that sits below the minimum brightness; a light without a known brightness no longer causes a template error.
@@ -748,7 +749,7 @@ action:
                   - choose:
                     - conditions:
                       - condition: template
-                        value_template: "{{ scroll_wheel_mode == 'lights: dim'}}"
+                        value_template: "{{ repeat.item.startswith('light.') and scroll_wheel_mode == 'lights: dim'}}"
                       sequence:
                         # scroll wheel mode: <lights: dim>
                         - if:
@@ -785,7 +786,7 @@ action:
                     # scroll wheel mode: <lights: color temp>
                     - conditions:
                       - condition: template
-                        value_template: "{{ scroll_wheel_mode == 'lights: color temp only' or (scroll_wheel_mode == 'lights: color temp and color hue' and state_attr(repeat.item, 'color_temp_kelvin') is not none ) }}"
+                        value_template: "{{ repeat.item.startswith('light.') and (scroll_wheel_mode == 'lights: color temp only' or (scroll_wheel_mode == 'lights: color temp and color hue' and state_attr(repeat.item, 'color_temp_kelvin') is not none )) }}"
                       sequence:
                         # scroll wheel mode: lights: color temp
                         - action: light.turn_on
@@ -806,7 +807,7 @@ action:
                       # scroll wheel mode: <lights: color hue>
                     - conditions:
                       - condition: template
-                        value_template: "{{ scroll_wheel_mode == 'lights: color hue only' or (scroll_wheel_mode == 'lights: color temp and color hue' and state_attr(repeat.item, 'color_temp_kelvin') is none ) }}"
+                        value_template: "{{ repeat.item.startswith('light.') and (scroll_wheel_mode == 'lights: color hue only' or (scroll_wheel_mode == 'lights: color temp and color hue' and state_attr(repeat.item, 'color_temp_kelvin') is none )) }}"
                       sequence:
                         - action: light.turn_on
                           target:
@@ -822,7 +823,7 @@ action:
                       # scroll wheel mode: <media: volume>
                     - conditions:
                       - condition: template
-                        value_template: "{{ scroll_wheel_mode == 'media: volume control' and (is_state(repeat.item, 'playing') or is_state(repeat.item, 'on') )}}"
+                        value_template: "{{ repeat.item.startswith('media_player.') and scroll_wheel_mode == 'media: volume control' and (is_state(repeat.item, 'playing') or is_state(repeat.item, 'on') )}}"
                       sequence:
                         - if:
                             - condition: template
