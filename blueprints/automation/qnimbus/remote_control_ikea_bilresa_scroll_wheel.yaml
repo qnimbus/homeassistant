@@ -1,23 +1,45 @@
 blueprint:
-  name: Ikea_bilresa_scroll_wheel
+  name: Remote control IKEA Bilresa scroll wheel
   description: |
       Blueprint for Ikea Bilresa Matter (button and scroll wheel for 3 different channels)
 
       **Version:** 2026-10-30
 
-      > **Before you use the scroll wheel:** the remote's nine sensors `sensor.<device_name>_current_switch_position_1` to `_9` (e.g. `sensor.bilresa_scroll_wheel_current_switch_position_1`) are disabled by default. **Enable all nine** (Settings → Devices & services → your Bilresa device → show disabled entities → enable). Without them the scroll wheel does nothing in `instant` evaluation mode and no error is shown. The `relaxed` mode and the button actions work without them.
+      <details>
+      <summary>⚠️ Setup: enable the 9 hidden sensors (needed for scroll wheel in <code>instant</code> mode)</summary>
+
+      The remote has nine sensors that are **disabled by default**:
+
+      `sensor.<device_name>_current_switch_position_1` … `_9`
+
+      Example: `sensor.bilresa_scroll_wheel_current_switch_position_1`
+
+      **How to enable them**
+
+      1. Go to **Settings → Devices & services → Matter** and open your Bilresa device.
+      2. Click **+N entities not shown** to reveal the disabled entities.
+      3. Open each `current switch position` sensor, click the cog and enable it.
+      4. Reload the Matter integration if the sensors don't show up.
+
+      **What happens without them**
+
+      - Scroll wheel in `instant` mode: nothing happens, and no error is shown.
+      - Scroll wheel in `relaxed` mode and all button actions: work without them.
+
+      </details>
 
       **Credits:** based on the blueprint by [jhol-byte](https://gist.github.com/jhol-byte/b2731a4d2476f530d76b9ff409f7f3a4) (version 2026-04-06). Original discussion: [Home Assistant community](https://community.home-assistant.io/t/ikea-bilresa-scroll-wheel-blueprint-matter/965365)
 
       <details>
       <summary>Changelog</summary>
 
-      - **2026-10-30**: added a prominent note that the nine `current_switch_position_1..9` sensors must be enabled for scroll wheel use in `instant` mode.
+      - **2026-10-30**: renamed to "Remote control IKEA Bilresa scroll wheel" (file renamed to `remote_control_ikea_bilresa_scroll_wheel.yaml`; `source_url` and README updated).
+      - **2026-10-30**: added a collapsible setup note with steps for enabling the nine `current_switch_position_1..9` sensors, needed for scroll wheel use in `instant` mode.
       - **2026-10-30**: forked from jhol-byte's 2026-04-06 version; added `source_url` so it can be imported from this repository.
 
       </details>
   domain: automation
-  source_url: https://github.com/qnimbus/homeassistant/blob/main/blueprints/automation/qnimbus/ikea_bilresa_scroll_wheel.yaml
+  source_url: https://github.com/qnimbus/homeassistant/blob/main/blueprints/automation/qnimbus/remote_control_ikea_bilresa_scroll_wheel.yaml
   
   # input selectors
   input:
