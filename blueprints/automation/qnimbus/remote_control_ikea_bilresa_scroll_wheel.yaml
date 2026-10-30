@@ -5,6 +5,8 @@ blueprint:
 
       **Version:** 2026-10-30
 
+      Changelog entries marked ⚠️ may break automations that already use this blueprint. Check them before updating.
+
       <details>
       <summary>⚠️ Setup: enable the 9 hidden sensors (needed for <code>instant</code> scroll wheel mode)</summary>
 
@@ -33,9 +35,10 @@ blueprint:
       <details>
       <summary>Changelog</summary>
 
+      - **2026-10-30**: ⚠️ **may break existing automations:** the remote's entities are now detected with stricter patterns that must match the end of the entity ID. A device name containing a number (e.g. "Bilresa 1") no longer makes every entity match the same channel, which silently disabled that channel. Entity IDs that end in `_<1-9>` (optionally followed by HA's `_<number>` duplicate suffix, e.g. `button_1_2`) keep working. Entity IDs that you renamed so that text follows the button number (e.g. `..._button_1_left`) are no longer found. Rename them back to end with the button number.
       - **2026-10-30**: scroll wheel `instant` mode now falls back to `relaxed` for a channel when the remote's `current_switch_position` sensors are missing or disabled, instead of silently doing nothing. The check only runs for `instant` scroll triggers, not for button clicks.
       - **2026-10-30**: fixed dimming (`lights: dim`): brightness is now converted with 255 instead of 254; scrolling down no longer raises a light that sits below the minimum brightness; a light without a known brightness no longer causes a template error.
-      - **2026-10-30**: renamed to "Remote control IKEA Bilresa scroll wheel" (file renamed to `remote_control_ikea_bilresa_scroll_wheel.yaml`; `source_url` and README updated).
+      - **2026-10-30**: ⚠️ **may break existing automations:** renamed to "Remote control IKEA Bilresa scroll wheel" (file renamed to `remote_control_ikea_bilresa_scroll_wheel.yaml`; `source_url` and README updated). Automations that were created from the old file `ikea_bilresa_scroll_wheel.yaml` of this repository must be pointed to the new blueprint.
       - **2026-10-30**: added a collapsible setup note with steps for enabling the nine `current_switch_position_1..9` sensors, needed for scroll wheel use in `instant` mode.
       - **2026-10-30**: forked from jhol-byte's 2026-04-06 version; added `source_url` so it can be imported from this repository.
 
@@ -872,35 +875,35 @@ trigger_variables:
   # get all event names from device_id only
   var_button_ch1: >-
     {% for item in device_entities(var_remote) %}
-    {% set match = item | regex_findall(find='^event\..+[a-zA-Z]_3.*$') %}
+    {% set match = item | regex_findall(find='^event\..+[a-zA-Z]_3(?:_\d+)?$') %}
     {% if (match | length) > 0 %}
       {{ match[0] }}
     {% endif %}
     {% endfor %}
   var_scroll_left_ch1: >-
     {% for item in device_entities(var_remote) %}
-    {% set match = item | regex_findall(find='^event\..+[a-zA-Z]_2.*$') %}
+    {% set match = item | regex_findall(find='^event\..+[a-zA-Z]_2(?:_\d+)?$') %}
     {% if (match | length) > 0 %}
       {{ match[0] }}
     {% endif %}
     {% endfor %}
   var_scroll_right_ch1: >-
     {% for item in device_entities(var_remote) %}
-    {% set match = item | regex_findall(find='^event\..+[a-zA-Z]_1.*$') %}
+    {% set match = item | regex_findall(find='^event\..+[a-zA-Z]_1(?:_\d+)?$') %}
     {% if (match | length) > 0 %}
       {{ match[0] }}
     {% endif %}
     {% endfor %}
   var_scroll_left_ext_ch1: >-
     {% for item in device_entities(var_remote) %}
-    {% set match = item | regex_findall(find='^sensor\..+[a-zA-Z]_2.*$') %}
+    {% set match = item | regex_findall(find='^sensor\..+[a-zA-Z]_2(?:_\d+)?$') %}
     {% if (match | length) > 0 %}
       {{ match[0] }}
     {% endif %}
     {% endfor %}
   var_scroll_right_ext_ch1: >-
     {% for item in device_entities(var_remote) %}
-    {% set match = item | regex_findall(find='^sensor\..+[a-zA-Z]_1.*$') %}
+    {% set match = item | regex_findall(find='^sensor\..+[a-zA-Z]_1(?:_\d+)?$') %}
     {% if (match | length) > 0 %}
       {{ match[0] }}
     {% endif %}
@@ -908,35 +911,35 @@ trigger_variables:
 
   var_button_ch2: >-
     {% for item in device_entities(var_remote) %}
-    {% set match = item | regex_findall(find='^event\..+[a-zA-Z]_6.*$') %}
+    {% set match = item | regex_findall(find='^event\..+[a-zA-Z]_6(?:_\d+)?$') %}
     {% if (match | length) > 0 %}
       {{ match[0] }}
     {% endif %}
     {% endfor %}
   var_scroll_left_ch2: >-
     {% for item in device_entities(var_remote) %}
-    {% set match = item | regex_findall(find='^event\..+[a-zA-Z]_5.*$') %}
+    {% set match = item | regex_findall(find='^event\..+[a-zA-Z]_5(?:_\d+)?$') %}
     {% if (match | length) > 0 %}
       {{ match[0] }}
     {% endif %}
     {% endfor %}
   var_scroll_right_ch2: >-
     {% for item in device_entities(var_remote) %}
-    {% set match = item | regex_findall(find='^event\..+[a-zA-Z]_4.*$') %}
+    {% set match = item | regex_findall(find='^event\..+[a-zA-Z]_4(?:_\d+)?$') %}
     {% if (match | length) > 0 %}
       {{ match[0] }}
     {% endif %}
     {% endfor %}
   var_scroll_left_ext_ch2: >-
     {% for item in device_entities(var_remote) %}
-    {% set match = item | regex_findall(find='^sensor\..+[a-zA-Z]_5.*$') %}
+    {% set match = item | regex_findall(find='^sensor\..+[a-zA-Z]_5(?:_\d+)?$') %}
     {% if (match | length) > 0 %}
       {{ match[0] }}
     {% endif %}
     {% endfor %}
   var_scroll_right_ext_ch2: >-
     {% for item in device_entities(var_remote) %}
-    {% set match = item | regex_findall(find='^sensor\..+[a-zA-Z]_4.*$') %}
+    {% set match = item | regex_findall(find='^sensor\..+[a-zA-Z]_4(?:_\d+)?$') %}
     {% if (match | length) > 0 %}
       {{ match[0] }}
     {% endif %}
@@ -944,35 +947,35 @@ trigger_variables:
 
   var_button_ch3: >-
     {% for item in device_entities(var_remote) %}
-    {% set match = item | regex_findall(find='^event\..+[a-zA-Z]_9.*$') %}
+    {% set match = item | regex_findall(find='^event\..+[a-zA-Z]_9(?:_\d+)?$') %}
     {% if (match | length) > 0 %}
       {{ match[0] }}
     {% endif %}
     {% endfor %}
   var_scroll_left_ch3: >-
     {% for item in device_entities(var_remote) %}
-    {% set match = item | regex_findall(find='^event\..+[a-zA-Z]_8.*$') %}
+    {% set match = item | regex_findall(find='^event\..+[a-zA-Z]_8(?:_\d+)?$') %}
     {% if (match | length) > 0 %}
       {{ match[0] }}
     {% endif %}
     {% endfor %}
   var_scroll_right_ch3: >-
     {% for item in device_entities(var_remote) %}
-    {% set match = item | regex_findall(find='^event\..+[a-zA-Z]_7.*$') %}
+    {% set match = item | regex_findall(find='^event\..+[a-zA-Z]_7(?:_\d+)?$') %}
     {% if (match | length) > 0 %}
       {{ match[0] }}
     {% endif %}
     {% endfor %}
   var_scroll_left_ext_ch3: >-
     {% for item in device_entities(var_remote) %}
-    {% set match = item | regex_findall(find='^sensor\..+[a-zA-Z]_8.*$') %}
+    {% set match = item | regex_findall(find='^sensor\..+[a-zA-Z]_8(?:_\d+)?$') %}
     {% if (match | length) > 0 %}
       {{ match[0] }}
     {% endif %}
     {% endfor %}
   var_scroll_right_ext_ch3: >-
     {% for item in device_entities(var_remote) %}
-    {% set match = item | regex_findall(find='^sensor\..+[a-zA-Z]_7.*$') %}
+    {% set match = item | regex_findall(find='^sensor\..+[a-zA-Z]_7(?:_\d+)?$') %}
     {% if (match | length) > 0 %}
       {{ match[0] }}
     {% endif %}
