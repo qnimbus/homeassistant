@@ -35,7 +35,7 @@ blueprint:
       <details>
       <summary>Changelog</summary>
 
-      - **2026-10-30**: the color temperature and color hue scroll modes no longer need the helper scripts `script.light_color_temp_helper` and `script.light_color_hs_helper`: their logic is built into the blueprint, so a fresh import works without any extra setup. The behaviour is the same, except that scrolling the hue on a light without a known color (e.g. one that is off) now starts at hue 0 instead of raising a template error. The scripts are no longer used by this blueprint; you can keep or delete them.
+      - **2026-10-30**: the color temperature and color hue scroll modes no longer need the helper scripts `script.light_color_temp_helper` and `script.light_color_hs_helper`: their logic is built into the blueprint, so a fresh import works without any extra setup. The behaviour is the same, except that scrolling the hue on a light without a known color (e.g. one that is off) now starts at hue 0 instead of raising a template error; the saturation sent to the light is now kept within 0..100, so a <Color saturation> of 0 no longer produces an invalid value. The scripts are no longer used by this blueprint; you can keep or delete them.
       - **2026-10-30**: ⚠️ **may break existing automations:** the remote's entities are now detected with stricter patterns that must match the end of the entity ID. A device name containing a number (e.g. "Bilresa 1") no longer makes every entity match the same channel, which silently disabled that channel. Entity IDs that end in `_<1-9>` (optionally followed by HA's `_<number>` duplicate suffix, e.g. `button_1_2`) keep working. Entity IDs that you renamed so that text follows the button number (e.g. `..._button_1_left`) are no longer found. Rename them back to end with the button number.
       - **2026-10-30**: scroll wheel `instant` mode now falls back to `relaxed` for a channel when the remote's `current_switch_position` sensors are missing or disabled, instead of silently doing nothing. The check only runs for `instant` scroll triggers, not for button clicks.
       - **2026-10-30**: fixed dimming (`lights: dim`): brightness is now converted with 255 instead of 254; scrolling down no longer raises a light that sits below the minimum brightness; a light without a known brightness no longer causes a template error.
@@ -807,11 +807,12 @@ action:
                             entity_id: "{{ repeat.item }}"
                           data:
                             transition: "{{ var_light_transition_duration }}"
-                            # step the hue (wraps around at 0/360); a light without a known color starts at hue 0
+                            # step the hue (wraps around at 0/360); a light without a known color starts at hue 0.
+                            # saturation is the <Color saturation> setting minus 1 (as in the original helper script), kept within 0..100
                             hs_color: >-
                               {% set current_hue = (state_attr(repeat.item, 'hs_color') or [0, 0])[0] %}
                               {{ [(current_hue + iif(scroll_direction == 'left', -1, 1) * var_color_hue_step * scroll_clicks) % 360,
-                                  var_color_saturation - 1] }}
+                                  [[var_color_saturation - 1, 100] | min, 0] | max] }}
                       # scroll wheel mode: <media: volume>
                     - conditions:
                       - condition: template
