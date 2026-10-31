@@ -5,6 +5,8 @@ blueprint:
 
       **Version:** 2026-10-31
 
+      Changelog entries marked ⚠️ may break automations that already use this blueprint. Check them before updating.
+
       | Gesture | Button 1 (on / brighter) | Button 2 (off / dimmer) |
       |---|---|---|
       | Single press | turn on | turn off |
@@ -16,7 +18,7 @@ blueprint:
       Hold-to-dim stops when the button is released (`long_release`), when the remote's `current_switch_position` sensor of that button returns to `0` (only if you enabled it, see below), or after the maximum hold time, so a missed release can never leave a light dimming forever.
 
       <details>
-      <summary>Optional: enable the 2 hidden sensors (extra safety for hold-to-dim)</summary>
+      <summary>❗Optional setup: enable the 2 hidden sensors (extra safety for hold-to-dim)</summary>
 
       The remote has two sensors that are **disabled by default**: `sensor.<device_name>_current_switch_position_1` and `_2`.
       They are not required. When enabled, they stop a hold-to-dim as soon as the button is released, even if the release event of the remote is lost.
@@ -26,8 +28,6 @@ blueprint:
       3. Open each `current switch position` sensor, click the cog and enable it.
 
       </details>
-
-      **Credits:** the entity lookup and dimming approach come from the [Bilresa scroll wheel blueprint](https://github.com/qnimbus/homeassistant/blob/main/blueprints/automation/qnimbus/remote_control_ikea_bilresa_scroll_wheel.yaml) of this repository, which is based on the blueprint by [jhol-byte](https://gist.github.com/jhol-byte/b2731a4d2476f530d76b9ff409f7f3a4).
 
       <details>
       <summary>Changelog</summary>

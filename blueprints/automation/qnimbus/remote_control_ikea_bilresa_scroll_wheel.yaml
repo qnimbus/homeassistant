@@ -30,8 +30,6 @@ blueprint:
 
       </details>
 
-      **Credits:** based on the blueprint by [jhol-byte](https://gist.github.com/jhol-byte/b2731a4d2476f530d76b9ff409f7f3a4) (version 2026-04-06). Original discussion: [Home Assistant community](https://community.home-assistant.io/t/ikea-bilresa-scroll-wheel-blueprint-matter/965365)
-
       <details>
       <summary>Changelog</summary>
 
@@ -47,6 +45,8 @@ blueprint:
       - **2026-10-30**: forked from jhol-byte's 2026-04-06 version; added `source_url` so it can be imported from this repository.
 
       </details>
+
+      **Credits:** based on the blueprint by [jhol-byte](https://gist.github.com/jhol-byte/b2731a4d2476f530d76b9ff409f7f3a4) (version 2026-04-06). Original discussion: [Home Assistant community](https://community.home-assistant.io/t/ikea-bilresa-scroll-wheel-blueprint-matter/965365)      
   domain: automation
   source_url: https://github.com/qnimbus/homeassistant/blob/main/blueprints/automation/qnimbus/remote_control_ikea_bilresa_scroll_wheel.yaml
   
