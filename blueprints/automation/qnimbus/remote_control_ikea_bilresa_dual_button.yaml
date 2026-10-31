@@ -1,0 +1,270 @@
+blueprint:
+  name: Remote control IKEA Bilresa dual button
+  description: |
+      Blueprint for the IKEA Bilresa Matter dual button remote (two momentary buttons, no scroll wheel) controlling lights.
+
+      **Version:** 2026-10-31
+
+      | Gesture | Button 1 (on / brighter) | Button 2 (off / dimmer) |
+      |---|---|---|
+      | Single press | turn on | turn off |
+      | Double press | full brightness | minimum brightness (night light) |
+      | Hold | brighter until released | dimmer until released (never turns the light off) |
+
+      Holding a button first turns lights that are off on at the minimum brightness (button 1), or leaves them off (button 2).
+
+      Hold-to-dim stops when the button is released (`long_release`), when the remote's `current_switch_position` sensor of that button returns to `0` (only if you enabled it, see below), or after the maximum hold time, so a missed release can never leave a light dimming forever.
+
+      <details>
+      <summary>Optional: enable the 2 hidden sensors (extra safety for hold-to-dim)</summary>
+
+      The remote has two sensors that are **disabled by default**: `sensor.<device_name>_current_switch_position_1` and `_2`.
+      They are not required. When enabled, they stop a hold-to-dim as soon as the button is released, even if the release event of the remote is lost.
+
+      1. Go to **Settings → Devices & services → Matter** and open your Bilresa device.
+      2. Click **+N entities not shown** to reveal the disabled entities.
+      3. Open each `current switch position` sensor, click the cog and enable it.
+
+      </details>
+
+      **Credits:** the entity lookup and dimming approach come from the [Bilresa scroll wheel blueprint](https://github.com/qnimbus/homeassistant/blob/main/blueprints/automation/qnimbus/remote_control_ikea_bilresa_scroll_wheel.yaml) of this repository, which is based on the blueprint by [jhol-byte](https://gist.github.com/jhol-byte/b2731a4d2476f530d76b9ff409f7f3a4).
+
+      <details>
+      <summary>Changelog</summary>
+
+      - **2026-10-31**: first version.
+
+      </details>
+  domain: automation
+  source_url: https://github.com/qnimbus/homeassistant/blob/main/blueprints/automation/qnimbus/remote_control_ikea_bilresa_dual_button.yaml
+
+  input:
+    remote:
+      name: Remote
+      description: "IKEA Bilresa dual button remote control"
+      selector:
+        device:
+          filter:
+            manufacturer: IKEA of Sweden
+            model: BILRESA dual button
+            integration: matter
+    lights:
+      name: Lights
+      description: "Lights controlled by both buttons"
+      default: []
+      selector:
+        entity:
+          multiple: true
+          filter:
+            domain: light
+
+    dimming_section:
+      name: Dimming settings
+      collapsed: true
+      input:
+        dim_step_pct:
+          name: Dim step percentage
+          description: "Brightness change in % per step while holding a button"
+          default: 10
+          selector:
+            number:
+              min: 1
+              max: 50
+              step: 1
+              mode: box
+        dim_min_pct:
+          name: Minimum brightness percentage
+          description: |
+            Holding button 2 never dims below this value, a double press on button 2 sets it,
+            and holding button 1 on a light that is off starts here
+          default: 5
+          selector:
+            number:
+              min: 1
+              max: 100
+              step: 1
+              mode: box
+        hold_interval:
+          name: Hold interval
+          description: "Seconds between two dim steps while a button is held"
+          default: 0.3
+          selector:
+            number:
+              min: 0.1
+              max: 2
+              step: 0.1
+              unit_of_measurement: s
+              mode: box
+        hold_max_seconds:
+          name: Maximum hold time
+          description: "Safety limit: hold-to-dim always stops after this many seconds"
+          default: 10
+          selector:
+            number:
+              min: 1
+              max: 60
+              step: 1
+              unit_of_measurement: s
+              mode: box
+        light_transition:
+          name: Light transition
+          description: "Transition time in seconds for every light command"
+          default: 0.3
+          selector:
+            number:
+              min: 0
+              max: 5
+              step: 0.1
+              unit_of_measurement: s
+              mode: box
+
+# automation logic
+trigger:
+  - trigger: event
+    event_type: state_changed
+    event_data:
+      entity_id: "{{ var_button_1 }}"
+    id: button_1
+  - trigger: event
+    event_type: state_changed
+    event_data:
+      entity_id: "{{ var_button_2 }}"
+    id: button_2
+
+condition:
+  # ignore availability changes and brand new entities
+  - condition: template
+    value_template: >-
+      {{ trigger.event.data.old_state is not none
+         and trigger.event.data.new_state is not none
+         and trigger.event.data.old_state.state != 'unavailable'
+         and trigger.event.data.new_state.state != 'unavailable'
+      }}
+
+action:
+  - variables:
+      event_type: "{{ trigger.event.data.new_state.attributes.event_type | default('') }}"
+      # position sensor of the button that triggered (may be empty/disabled)
+      pos_sensor: "{{ var_pos_1 if trigger.id == 'button_1' else var_pos_2 }}"
+      hold_started: "{{ as_timestamp(now()) }}"
+  - choose:
+      # ---- button 1: on / brighter
+      - conditions: "{{ trigger.id == 'button_1' and event_type == 'multi_press_1' }}"
+        sequence:
+          - action: light.turn_on
+            target:
+              entity_id: !input lights
+            data:
+              transition: "{{ var_transition }}"
+      - conditions: "{{ trigger.id == 'button_1' and event_type == 'multi_press_2' }}"
+        sequence:
+          - action: light.turn_on
+            target:
+              entity_id: !input lights
+            data:
+              brightness_pct: 100
+              transition: "{{ var_transition }}"
+      - conditions: "{{ trigger.id == 'button_1' and event_type == 'long_press' }}"
+        sequence:
+          # lights that are off start at the minimum brightness
+          - repeat:
+              for_each: !input lights
+              sequence:
+                - if: "{{ is_state(repeat.item, 'off') }}"
+                  then:
+                    - action: light.turn_on
+                      target:
+                        entity_id: "{{ repeat.item }}"
+                      data:
+                        brightness_pct: "{{ var_min_pct }}"
+                        transition: "{{ var_transition }}"
+          - repeat:
+              while:
+                - condition: template
+                  value_template: >-
+                    {{ state_attr(trigger.event.data.entity_id, 'event_type') == 'long_press'
+                       and not is_state(pos_sensor, '0')
+                       and as_timestamp(now()) - hold_started < var_hold_max_seconds }}
+              sequence:
+                - variables:
+                    on_lights: "{{ var_lights | select('is_state', 'on') | list }}"
+                - if: "{{ on_lights | length > 0 }}"
+                  then:
+                    - action: light.turn_on
+                      target:
+                        entity_id: "{{ on_lights }}"
+                      data:
+                        brightness_step_pct: "{{ var_step_pct }}"
+                        transition: "{{ var_transition }}"
+                - delay:
+                    seconds: "{{ var_hold_interval }}"
+
+      # ---- button 2: off / dimmer
+      - conditions: "{{ trigger.id == 'button_2' and event_type == 'multi_press_1' }}"
+        sequence:
+          - action: light.turn_off
+            target:
+              entity_id: !input lights
+            data:
+              transition: "{{ var_transition }}"
+      - conditions: "{{ trigger.id == 'button_2' and event_type == 'multi_press_2' }}"
+        sequence:
+          - action: light.turn_on
+            target:
+              entity_id: !input lights
+            data:
+              brightness_pct: "{{ var_min_pct }}"
+              transition: "{{ var_transition }}"
+      - conditions: "{{ trigger.id == 'button_2' and event_type == 'long_press' }}"
+        sequence:
+          - repeat:
+              while:
+                - condition: template
+                  value_template: >-
+                    {{ state_attr(trigger.event.data.entity_id, 'event_type') == 'long_press'
+                       and not is_state(pos_sensor, '0')
+                       and as_timestamp(now()) - hold_started < var_hold_max_seconds }}
+              sequence:
+                - repeat:
+                    for_each: !input lights
+                    sequence:
+                      # the step is clamped to the distance above the minimum brightness (0 at or below it),
+                      # so holding never turns a light off. brightness attribute is 0..255, unknown counts as 0
+                      - variables:
+                          current_pct: "{{ (state_attr(repeat.item, 'brightness') | float(0)) * 100 / 255 }}"
+                          step_pct: "{{ [var_step_pct, [current_pct - var_min_pct, 0] | max] | min }}"
+                      - if: "{{ is_state(repeat.item, 'on') and step_pct > 0 }}"
+                        then:
+                          - action: light.turn_on
+                            target:
+                              entity_id: "{{ repeat.item }}"
+                            data:
+                              brightness_step_pct: "{{ -1 * step_pct }}"
+                              transition: "{{ var_transition }}"
+                - delay:
+                    seconds: "{{ var_hold_interval }}"
+
+# restart: a new gesture (including the release of a hold, or the other button) stops a running hold-to-dim at once
+mode: restart
+
+variables:
+  var_lights: !input lights
+  var_step_pct: !input dim_step_pct
+  var_min_pct: !input dim_min_pct
+  var_hold_interval: !input hold_interval
+  var_hold_max_seconds: !input hold_max_seconds
+  var_transition: !input light_transition
+
+trigger_variables:
+  var_remote: !input remote
+
+  # entity ids of the remote, found from the device only: the button number is the last part of the entity id
+  # (optionally followed by the _<number> suffix HA adds for duplicate ids); empty when not found
+  var_button_1: >-
+    {{ device_entities(var_remote) | select('match', '^event\..+[a-zA-Z]_1(?:_\d+)?$') | first | default('') }}
+  var_button_2: >-
+    {{ device_entities(var_remote) | select('match', '^event\..+[a-zA-Z]_2(?:_\d+)?$') | first | default('') }}
+  var_pos_1: >-
+    {{ device_entities(var_remote) | select('match', '^sensor\..+[a-zA-Z]_1(?:_\d+)?$') | first | default('') }}
+  var_pos_2: >-
+    {{ device_entities(var_remote) | select('match', '^sensor\..+[a-zA-Z]_2(?:_\d+)?$') | first | default('') }}
