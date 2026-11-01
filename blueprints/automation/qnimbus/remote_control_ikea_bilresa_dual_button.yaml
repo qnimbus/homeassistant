@@ -27,11 +27,12 @@ blueprint:
       | Gesture | Result |
       |---|---|
       | Single press | toggle the light on / off |
+      | Double press | full brightness (optional, on by default) |
       | Hold | the first hold dims **up**, the next hold dims **down**, and so on, until the button is released |
 
       A light that is off is turned on at the minimum brightness when you hold its button (and dims up). Dimming down never turns the light off.
       The direction is remembered in an optional `input_boolean` per button (see *Hold direction helpers*). Without helpers the direction is derived from the brightness: up, unless the light is already at 100 %.
-      A double press does nothing in this mode.
+      The double press can be switched off with *Double press = full brightness*.
 
       ### Hold-to-dim safety
 
@@ -52,6 +53,7 @@ blueprint:
       <details>
       <summary>Changelog</summary>
 
+      - **2026-11-01**: new option *Double press = full brightness* for the *One light per button* mode (default on).
       - **2026-11-01**: new *Operating mode* input: besides the shared mode (unchanged, default) each button can control its own light (single press toggles, hold alternates between dimming up and down). New optional inputs: *Light for button 1/2* and *Hold direction helpers*. Existing automations keep working without changes.
       - **2026-10-31**: first version.
 
@@ -109,6 +111,13 @@ blueprint:
         entity:
           filter:
             domain: light
+
+    double_press_full:
+      name: Double press = full brightness (one light per button mode)
+      description: "Only used in the *One light per button* mode. A double press sets the button's light to 100 %"
+      default: true
+      selector:
+        boolean:
 
     direction_section:
       name: Hold direction helpers (one light per button mode)
@@ -331,6 +340,16 @@ action:
             data:
               transition: "{{ var_transition }}"
 
+      # ---- one light per button: double press = full brightness
+      - conditions: "{{ var_mode == 'separate' and var_double_full and single_light != '' and event_type == 'multi_press_2' }}"
+        sequence:
+          - action: light.turn_on
+            target:
+              entity_id: "{{ single_light }}"
+            data:
+              brightness_pct: 100
+              transition: "{{ var_transition }}"
+
       # ---- one light per button: hold dims up, the next hold dims down
       - conditions: "{{ var_mode == 'separate' and single_light != '' and event_type == 'long_press' }}"
         sequence:
@@ -385,6 +404,7 @@ mode: restart
 variables:
   var_mode: !input operating_mode
   var_lights: !input lights
+  var_double_full: !input double_press_full
   var_light_1: !input light_button_1
   var_light_2: !input light_button_2
   var_helper_1: !input direction_helper_1
