@@ -1,18 +1,24 @@
 blueprint:
   name: Remote control IKEA Bilresa dual button
   description: |
-      Blueprint for the IKEA Bilresa Matter dual button remote (two momentary buttons, no scroll wheel) controlling lights.
+      Controls lights with the two buttons of an IKEA Bilresa Matter dual button remote: press to switch, hold to dim.
+      Works in two modes: both buttons on a shared group of lights, or one light per button.
 
       **Version:** 2026-11-01
 
       Changelog entries marked ⚠️ may break automations that already use this blueprint. Check them before updating.
+
+      <details>
+      <summary>How it works</summary>
+
+      The remote has two momentary buttons and no scroll wheel. The blueprint listens to the button events of the remote (single press, double press, hold, release) and translates them into light commands. Pick the behaviour with the **Operating mode** input.
 
       Choose the **operating mode** below:
 
       - **Shared lights** (default): both buttons control the same group of lights.
       - **One light per button**: button 1 controls light 1 and button 2 controls light 2, each with its own toggle and dimming.
 
-      ### Shared lights
+      #### Shared lights
 
       | Gesture | Button 1 (on / brighter) | Button 2 (off / dimmer) |
       |---|---|---|
@@ -22,7 +28,7 @@ blueprint:
 
       Holding a button first turns lights that are off on at the minimum brightness (button 1), or leaves them off (button 2).
 
-      ### One light per button
+      #### One light per button
 
       | Gesture | Result |
       |---|---|
@@ -34,9 +40,11 @@ blueprint:
       The direction is remembered in an optional `input_boolean` per button (see *Hold direction helpers*). Without helpers the direction is derived from the brightness: up, unless the light is already at 100 %.
       The double press can be switched off with *Double press = full brightness*.
 
-      ### Hold-to-dim safety
+      #### Hold-to-dim safety
 
       Hold-to-dim stops when the button is released (`long_release`), when the remote's `current_switch_position` sensor of that button returns to `0` (only if you enabled it, see below), or after the maximum hold time, so a missed release can never leave a light dimming forever.
+
+      </details>
 
       <details>
       <summary>❗Optional setup: enable the 2 hidden sensors (extra safety for hold-to-dim)</summary>
@@ -54,6 +62,7 @@ blueprint:
       <summary>Changelog</summary>
 
       - **2026-11-01**: new option *Double press = full brightness* for the *One light per button* mode (default on).
+      - **2026-11-01**: added a short summary and a collapsible *How it works* section to the description.
       - **2026-11-01**: new *Operating mode* input: besides the shared mode (unchanged, default) each button can control its own light (single press toggles, hold alternates between dimming up and down). New optional inputs: *Light for button 1/2* and *Hold direction helpers*. Existing automations keep working without changes.
       - **2026-10-31**: first version.
 

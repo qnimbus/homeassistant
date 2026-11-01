@@ -1,11 +1,49 @@
 blueprint:
   name: Remote control IKEA Bilresa scroll wheel
   description: |
-      Blueprint for Ikea Bilresa Matter (button and scroll wheel for 3 different channels)
+      Lets you run your own actions from the three channels of an IKEA Bilresa Matter scroll wheel remote, and use the scroll wheel to dim lights, change their colour or control a media player volume.
+      Each channel has its own button actions and its own scroll wheel target and mode.
 
-      **Version:** 2026-10-31
+      **Version:** 2026-11-01
 
       Changelog entries marked ⚠️ may break automations that already use this blueprint. Check them before updating.
+
+      <details>
+      <summary>How it works</summary>
+
+      The remote has three channels. Each channel has a button and a scroll wheel, and the blueprint configures them separately (one collapsed section per channel).
+
+      **Button (per channel)**
+
+      - Click, double-click, triple-click and long-click each run the action you configure.
+      - On-hold repeats its action until the button is released (the delay between calls is set under *Miscellaneous settings*).
+
+      **Scroll wheel (per channel)**
+
+      Pick the target light(s) or media player(s) and a **scroll wheel mode**:
+
+      | Mode | Scrolling does |
+      |---|---|
+      | `lights: dim` | brightness up / down |
+      | `lights: color temp and color hue` | colour temperature and hue |
+      | `lights: color temp only` | colour temperature |
+      | `lights: color hue only` | colour hue |
+      | `media: volume control` | volume of the media players |
+      | `dynamic: choose from input_select` | the mode is taken from an `input_select` helper, so you can switch modes on the fly (e.g. from a button action) |
+      | `user defined` | runs your own action for each scroll step |
+
+      Targets of a type that does not fit the active mode are skipped (lights only react to the `lights:` modes, media players only to `media: volume control`).
+
+      **Evaluation mode (per channel)**
+
+      - `relaxed`: one action after scrolling stops.
+      - `instant`: one action per scroll click while scrolling. This needs the 9 hidden `current_switch_position` sensors (see the setup note below); without them the channel falls back to `relaxed`.
+
+      **Global settings**
+
+      Step sizes, minimum brightness, colour temperature range, hue and saturation, transition time and volume limits are shared by all channels. *Auto reset time for input_select helpers* sets the dynamic mode helpers back to their first option after the given time.
+
+      </details>
 
       <details>
       <summary>❗Setup: enable the 9 hidden sensors (needed for <code>instant</code> scroll wheel mode)</summary>
@@ -33,6 +71,7 @@ blueprint:
       <details>
       <summary>Changelog</summary>
 
+      - **2026-11-01**: added a short summary and a collapsible *How it works* section to the description (no functional changes).
       - **2026-10-31**: cleanup without functional changes: the 15 entity lookups of the remote are now one-line templates instead of 7-line loops (they return the first match or an empty value), the unused top-level `alias` is removed and the channel 1 evaluation mode description is formatted like channels 2 and 3.
       - **2026-10-31**: the color temperature and color hue scroll modes no longer need the helper scripts `script.light_color_temp_helper` and `script.light_color_hs_helper`: their logic is built into the blueprint, so a fresh import works without any extra setup. The behaviour is the same, except that scrolling the hue on a light without a known color (e.g. one that is off) now starts at hue 0 instead of raising a template error; the saturation sent to the light is now kept within 0..100, so a <Color saturation> of 0 no longer produces an invalid value. The scripts are no longer used by this blueprint; you can keep or delete them.
       - **2026-10-30**: ⚠️ **may break existing automations:** the remote's entities are now detected with stricter patterns that must match the end of the entity ID. A device name containing a number (e.g. "Bilresa 1") no longer makes every entity match the same channel, which silently disabled that channel. Entity IDs that end in `_<1-9>` (optionally followed by HA's `_<number>` duplicate suffix, e.g. `button_1_2`) keep working. Entity IDs that you renamed so that text follows the button number (e.g. `..._button_1_left`) are no longer found. Rename them back to end with the button number.
