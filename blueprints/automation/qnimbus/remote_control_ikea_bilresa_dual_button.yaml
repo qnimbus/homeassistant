@@ -3,9 +3,16 @@ blueprint:
   description: |
       Blueprint for the IKEA Bilresa Matter dual button remote (two momentary buttons, no scroll wheel) controlling lights.
 
-      **Version:** 2026-10-31
+      **Version:** 2026-11-01
 
       Changelog entries marked ⚠️ may break automations that already use this blueprint. Check them before updating.
+
+      Choose the **operating mode** below:
+
+      - **Shared lights** (default): both buttons control the same group of lights.
+      - **One light per button**: button 1 controls light 1 and button 2 controls light 2, each with its own toggle and dimming.
+
+      ### Shared lights
 
       | Gesture | Button 1 (on / brighter) | Button 2 (off / dimmer) |
       |---|---|---|
@@ -14,6 +21,19 @@ blueprint:
       | Hold | brighter until released | dimmer until released (never turns the light off) |
 
       Holding a button first turns lights that are off on at the minimum brightness (button 1), or leaves them off (button 2).
+
+      ### One light per button
+
+      | Gesture | Result |
+      |---|---|
+      | Single press | toggle the light on / off |
+      | Hold | the first hold dims **up**, the next hold dims **down**, and so on, until the button is released |
+
+      A light that is off is turned on at the minimum brightness when you hold its button (and dims up). Dimming down never turns the light off.
+      The direction is remembered in an optional `input_boolean` per button (see *Hold direction helpers*). Without helpers the direction is derived from the brightness: up, unless the light is already at 100 %.
+      A double press does nothing in this mode.
+
+      ### Hold-to-dim safety
 
       Hold-to-dim stops when the button is released (`long_release`), when the remote's `current_switch_position` sensor of that button returns to `0` (only if you enabled it, see below), or after the maximum hold time, so a missed release can never leave a light dimming forever.
 
@@ -32,6 +52,7 @@ blueprint:
       <details>
       <summary>Changelog</summary>
 
+      - **2026-11-01**: new *Operating mode* input: besides the shared mode (unchanged, default) each button can control its own light (single press toggles, hold alternates between dimming up and down). New optional inputs: *Light for button 1/2* and *Hold direction helpers*. Existing automations keep working without changes.
       - **2026-10-31**: first version.
 
       </details>
@@ -48,15 +69,69 @@ blueprint:
             manufacturer: IKEA of Sweden
             model: BILRESA dual button
             integration: matter
+    operating_mode:
+      name: Operating mode
+      description: |
+        **Shared lights**: both buttons control the lights selected under *Lights*.
+        **One light per button**: button 1 controls *Light for button 1*, button 2 controls *Light for button 2*.
+      default: shared
+      selector:
+        select:
+          mode: list
+          options:
+            - label: Shared lights (button 1 on / brighter, button 2 off / dimmer)
+              value: shared
+            - label: One light per button (press toggles, hold dims up / down)
+              value: separate
     lights:
-      name: Lights
-      description: "Lights controlled by both buttons"
+      name: Lights (shared mode)
+      description: "Lights controlled by both buttons. Only used in the *Shared lights* mode"
       default: []
       selector:
         entity:
           multiple: true
           filter:
             domain: light
+
+    light_button_1:
+      name: Light for button 1 (one light per button mode)
+      description: "Only used in the *One light per button* mode"
+      default: ""
+      selector:
+        entity:
+          filter:
+            domain: light
+    light_button_2:
+      name: Light for button 2 (one light per button mode)
+      description: "Only used in the *One light per button* mode"
+      default: ""
+      selector:
+        entity:
+          filter:
+            domain: light
+
+    direction_section:
+      name: Hold direction helpers (one light per button mode)
+      description: |
+        Optional. Create an `input_boolean` helper per button (Settings → Devices & services → Helpers → Toggle).
+        The blueprint uses it to remember whether the next hold dims up (on) or down (off), and flips it on every hold.
+        Without a helper the direction follows the brightness: up, unless the light is already at 100 %.
+      collapsed: true
+      input:
+        direction_helper_1:
+          name: Direction helper for button 1
+          default: ""
+          selector:
+            entity:
+              filter:
+                domain: input_boolean
+        direction_helper_2:
+          name: Direction helper for button 2
+          default: ""
+          selector:
+            entity:
+              filter:
+                domain: input_boolean
 
     dimming_section:
       name: Dimming settings
@@ -75,8 +150,8 @@ blueprint:
         dim_min_pct:
           name: Minimum brightness percentage
           description: |
-            Holding button 2 never dims below this value, a double press on button 2 sets it,
-            and holding button 1 on a light that is off starts here
+            Dimming down never goes below this value, a double press on button 2 (shared mode) sets it,
+            and holding a button on a light that is off starts here
           default: 5
           selector:
             number:
@@ -147,16 +222,19 @@ action:
       # position sensor of the button that triggered (may be empty/disabled)
       pos_sensor: "{{ var_pos_1 if trigger.id == 'button_1' else var_pos_2 }}"
       hold_started: "{{ as_timestamp(now()) }}"
+      # one light per button mode: the light and direction helper of the button that triggered
+      single_light: "{{ var_light_1 if trigger.id == 'button_1' else var_light_2 }}"
+      dir_helper: "{{ var_helper_1 if trigger.id == 'button_1' else var_helper_2 }}"
   - choose:
       # ---- button 1: on / brighter
-      - conditions: "{{ trigger.id == 'button_1' and event_type == 'multi_press_1' }}"
+      - conditions: "{{ var_mode == 'shared' and trigger.id == 'button_1' and event_type == 'multi_press_1' }}"
         sequence:
           - action: light.turn_on
             target:
               entity_id: !input lights
             data:
               transition: "{{ var_transition }}"
-      - conditions: "{{ trigger.id == 'button_1' and event_type == 'multi_press_2' }}"
+      - conditions: "{{ var_mode == 'shared' and trigger.id == 'button_1' and event_type == 'multi_press_2' }}"
         sequence:
           - action: light.turn_on
             target:
@@ -164,7 +242,7 @@ action:
             data:
               brightness_pct: 100
               transition: "{{ var_transition }}"
-      - conditions: "{{ trigger.id == 'button_1' and event_type == 'long_press' }}"
+      - conditions: "{{ var_mode == 'shared' and trigger.id == 'button_1' and event_type == 'long_press' }}"
         sequence:
           # lights that are off start at the minimum brightness
           - repeat:
@@ -200,14 +278,14 @@ action:
                     seconds: "{{ var_hold_interval }}"
 
       # ---- button 2: off / dimmer
-      - conditions: "{{ trigger.id == 'button_2' and event_type == 'multi_press_1' }}"
+      - conditions: "{{ var_mode == 'shared' and trigger.id == 'button_2' and event_type == 'multi_press_1' }}"
         sequence:
           - action: light.turn_off
             target:
               entity_id: !input lights
             data:
               transition: "{{ var_transition }}"
-      - conditions: "{{ trigger.id == 'button_2' and event_type == 'multi_press_2' }}"
+      - conditions: "{{ var_mode == 'shared' and trigger.id == 'button_2' and event_type == 'multi_press_2' }}"
         sequence:
           - action: light.turn_on
             target:
@@ -215,7 +293,7 @@ action:
             data:
               brightness_pct: "{{ var_min_pct }}"
               transition: "{{ var_transition }}"
-      - conditions: "{{ trigger.id == 'button_2' and event_type == 'long_press' }}"
+      - conditions: "{{ var_mode == 'shared' and trigger.id == 'button_2' and event_type == 'long_press' }}"
         sequence:
           - repeat:
               while:
@@ -244,11 +322,73 @@ action:
                 - delay:
                     seconds: "{{ var_hold_interval }}"
 
+      # ---- one light per button: single press toggles
+      - conditions: "{{ var_mode == 'separate' and single_light != '' and event_type == 'multi_press_1' }}"
+        sequence:
+          - action: light.toggle
+            target:
+              entity_id: "{{ single_light }}"
+            data:
+              transition: "{{ var_transition }}"
+
+      # ---- one light per button: hold dims up, the next hold dims down
+      - conditions: "{{ var_mode == 'separate' and single_light != '' and event_type == 'long_press' }}"
+        sequence:
+          - variables:
+              was_off: "{{ is_state(single_light, 'off') }}"
+              start_pct: "{{ (state_attr(single_light, 'brightness') | float(0)) * 100 / 255 }}"
+              # off: always up. Otherwise the helper decides (on = up); without helper: up unless already at 100 %
+              dim_up: >-
+                {{ was_off or (is_state(dir_helper, 'on') if dir_helper != '' else start_pct < 100) }}
+          # the next hold goes the other way
+          - if: "{{ dir_helper != '' }}"
+            then:
+              - action: "input_boolean.turn_{{ 'off' if dim_up else 'on' }}"
+                target:
+                  entity_id: "{{ dir_helper }}"
+          - if: "{{ was_off }}"
+            then:
+              - action: light.turn_on
+                target:
+                  entity_id: "{{ single_light }}"
+                data:
+                  brightness_pct: "{{ var_min_pct }}"
+                  transition: "{{ var_transition }}"
+          - repeat:
+              while:
+                - condition: template
+                  value_template: >-
+                    {{ state_attr(trigger.event.data.entity_id, 'event_type') == 'long_press'
+                       and not is_state(pos_sensor, '0')
+                       and as_timestamp(now()) - hold_started < var_hold_max_seconds }}
+              sequence:
+                # dimming down is clamped to the distance above the minimum brightness, so holding never turns the light off
+                - variables:
+                    current_pct: "{{ (state_attr(single_light, 'brightness') | float(0)) * 100 / 255 }}"
+                    step_pct: >-
+                      {{ var_step_pct if dim_up
+                         else -1 * ([var_step_pct, [current_pct - var_min_pct, 0] | max] | min) }}
+                - if: "{{ is_state(single_light, 'on') and step_pct != 0 }}"
+                  then:
+                    - action: light.turn_on
+                      target:
+                        entity_id: "{{ single_light }}"
+                      data:
+                        brightness_step_pct: "{{ step_pct }}"
+                        transition: "{{ var_transition }}"
+                - delay:
+                    seconds: "{{ var_hold_interval }}"
+
 # restart: a new gesture (including the release of a hold, or the other button) stops a running hold-to-dim at once
 mode: restart
 
 variables:
+  var_mode: !input operating_mode
   var_lights: !input lights
+  var_light_1: !input light_button_1
+  var_light_2: !input light_button_2
+  var_helper_1: !input direction_helper_1
+  var_helper_2: !input direction_helper_2
   var_step_pct: !input dim_step_pct
   var_min_pct: !input dim_min_pct
   var_hold_interval: !input hold_interval
