@@ -3,7 +3,7 @@ blueprint:
   description: |
       Controls lights or power plugs with the two buttons of an IKEA Bilresa Matter dual button remote.
       Lights: press to switch, hold to dim (both buttons on a shared group of lights, or one light per button).
-      Power plugs: button 1 turns the switches off, button 2 turns them on.
+      Power plugs: button 1 turns the switches on, button 2 turns them off.
 
       Requires Home Assistant 2026.11 or newer (the form only shows the inputs that apply to what you control).
 
@@ -49,8 +49,8 @@ blueprint:
 
       | Gesture | Result |
       |---|---|
-      | Button 1, single press | turn the switches off |
-      | Button 2, single press | turn the switches on |
+      | Button 1, single press | turn the switches on |
+      | Button 2, single press | turn the switches off |
 
       Double press and hold do nothing for plugs.
 
@@ -75,6 +75,7 @@ blueprint:
       <details>
       <summary>Changelog</summary>
 
+      - **2026-11-08**: ⚠️ **may break existing automations:** for *Power plugs* button 1 now turns the switches **on** and button 2 turns them **off** (this was the other way round in the first 2026-11-08 version). Automations that already use *Power plugs* now behave the opposite way: swap the two switch entries or accept the new behaviour. Lights are unchanged.
       - **2026-11-08**: new input *What do you control?* (*Lights* by default) with support for power plugs (`switch`): button 1 turns the switches off, button 2 turns them on. Inputs that do not apply to the choice are hidden (needs Home Assistant 2026.11). Existing automations keep working without changes.
       - **2026-11-08**: the *Power plugs* list only shows switches from the Z-Wave JS, MQTT, Plugwise and Matter integrations.
       - **2026-11-01**: new option *Double press = full brightness* for the *One light per button* mode (default on).
@@ -102,7 +103,7 @@ blueprint:
       name: What do you control?
       description: |
         **Lights**: press to switch, hold to dim.
-        **Power plugs**: button 1 turns the switches off, button 2 turns them on.
+        **Power plugs**: button 1 turns the switches on, button 2 turns them off.
       default: light
       selector:
         select:
@@ -114,7 +115,7 @@ blueprint:
               value: switch
     switches:
       name: Power plugs
-      description: "Switches controlled by the remote: button 1 turns them off, button 2 turns them on. Only switches from Z-Wave JS, MQTT (Zigbee2MQTT), Plugwise and Matter are listed"
+      description: "Switches controlled by the remote: button 1 turns them on, button 2 turns them off. Only switches from Z-Wave JS, MQTT (Zigbee2MQTT), Plugwise and Matter are listed"
       default: []
       visible:
         field: target_type
@@ -328,15 +329,15 @@ action:
       single_light: "{{ var_light_1 if trigger.id == 'button_1' else var_light_2 }}"
       dir_helper: "{{ var_helper_1 if trigger.id == 'button_1' else var_helper_2 }}"
   - choose:
-      # ---- power plugs: button 1 off, button 2 on (single press)
+      # ---- power plugs: button 1 on, button 2 off (single press)
       - conditions: "{{ var_mode == 'switch' and var_switches | length > 0 and trigger.id == 'button_1' and event_type == 'multi_press_1' }}"
         sequence:
-          - action: switch.turn_off
+          - action: switch.turn_on
             target:
               entity_id: !input switches
       - conditions: "{{ var_mode == 'switch' and var_switches | length > 0 and trigger.id == 'button_2' and event_type == 'multi_press_1' }}"
         sequence:
-          - action: switch.turn_on
+          - action: switch.turn_off
             target:
               entity_id: !input switches
 
