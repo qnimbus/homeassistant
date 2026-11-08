@@ -1,10 +1,13 @@
 blueprint:
   name: Remote control IKEA Bilresa dual button
   description: |
-      Controls lights with the two buttons of an IKEA Bilresa Matter dual button remote: press to switch, hold to dim.
-      Works in two modes: both buttons on a shared group of lights, or one light per button.
+      Controls lights or power plugs with the two buttons of an IKEA Bilresa Matter dual button remote.
+      Lights: press to switch, hold to dim (both buttons on a shared group of lights, or one light per button).
+      Power plugs: button 1 turns the switches off, button 2 turns them on.
 
-      **Version:** 2026-11-01
+      Requires Home Assistant 2026.11 or newer (the form only shows the inputs that apply to what you control).
+
+      **Version:** 2026-11-08
 
       Changelog entries marked ⚠️ may break automations that already use this blueprint. Check them before updating.
 
@@ -13,7 +16,9 @@ blueprint:
 
       The remote has two momentary buttons and no scroll wheel. The blueprint listens to the button events of the remote (single press, double press, hold, release) and translates them into light commands. Pick the behaviour with the **Operating mode** input.
 
-      Choose the **operating mode** below:
+      First choose **What do you control?**: *Lights* or *Power plugs*. The inputs below adapt to that choice.
+
+      For lights, choose the **operating mode**:
 
       - **Shared lights** (default): both buttons control the same group of lights.
       - **One light per button**: button 1 controls light 1 and button 2 controls light 2, each with its own toggle and dimming.
@@ -40,7 +45,16 @@ blueprint:
       The direction is remembered in an optional `input_boolean` per button (see *Hold direction helpers*). Without helpers the direction is derived from the brightness: up, unless the light is already at 100 %.
       The double press can be switched off with *Double press = full brightness*.
 
-      #### Hold-to-dim safety
+      #### Power plugs
+
+      | Gesture | Result |
+      |---|---|
+      | Button 1, single press | turn the switches off |
+      | Button 2, single press | turn the switches on |
+
+      Double press and hold do nothing for plugs.
+
+      #### Hold-to-dim safety (lights)
 
       Hold-to-dim stops when the button is released (`long_release`), when the remote's `current_switch_position` sensor of that button returns to `0` (only if you enabled it, see below), or after the maximum hold time, so a missed release can never leave a light dimming forever.
 
@@ -61,6 +75,7 @@ blueprint:
       <details>
       <summary>Changelog</summary>
 
+      - **2026-11-08**: new input *What do you control?* (*Lights* by default) with support for power plugs (`switch`): button 1 turns the switches off, button 2 turns them on. Inputs that do not apply to the choice are hidden (needs Home Assistant 2026.11). Existing automations keep working without changes.
       - **2026-11-01**: new option *Double press = full brightness* for the *One light per button* mode (default on).
       - **2026-11-01**: added a short summary and a collapsible *How it works* section to the description.
       - **2026-11-01**: new *Operating mode* input: besides the shared mode (unchanged, default) each button can control its own light (single press toggles, hold alternates between dimming up and down). New optional inputs: *Light for button 1/2* and *Hold direction helpers*. Existing automations keep working without changes.
@@ -68,6 +83,8 @@ blueprint:
 
       </details>
   domain: automation
+  homeassistant:
+    min_version: 2026.11.0
   source_url: https://github.com/qnimbus/homeassistant/blob/main/blueprints/automation/qnimbus/remote_control_ikea_bilresa_dual_button.yaml
 
   input:
@@ -80,12 +97,42 @@ blueprint:
             manufacturer: IKEA of Sweden
             model: BILRESA dual button
             integration: matter
+    target_type:
+      name: What do you control?
+      description: |
+        **Lights**: press to switch, hold to dim.
+        **Power plugs**: button 1 turns the switches off, button 2 turns them on.
+      default: light
+      selector:
+        select:
+          mode: list
+          options:
+            - label: Lights
+              value: light
+            - label: Power plugs (switches)
+              value: switch
+    switches:
+      name: Power plugs
+      description: "Switches controlled by the remote: button 1 turns them off, button 2 turns them on"
+      default: []
+      visible:
+        field: target_type
+        value: switch
+      selector:
+        entity:
+          multiple: true
+          filter:
+            domain: switch
+
     operating_mode:
       name: Operating mode
       description: |
         **Shared lights**: both buttons control the lights selected under *Lights*.
         **One light per button**: button 1 controls *Light for button 1*, button 2 controls *Light for button 2*.
       default: shared
+      visible:
+        field: target_type
+        value: light
       selector:
         select:
           mode: list
@@ -98,6 +145,11 @@ blueprint:
       name: Lights (shared mode)
       description: "Lights controlled by both buttons. Only used in the *Shared lights* mode"
       default: []
+      visible:
+        - field: target_type
+          value: light
+        - field: operating_mode
+          value: shared
       selector:
         entity:
           multiple: true
@@ -108,6 +160,11 @@ blueprint:
       name: Light for button 1 (one light per button mode)
       description: "Only used in the *One light per button* mode"
       default: ""
+      visible:
+        - field: target_type
+          value: light
+        - field: operating_mode
+          value: separate
       selector:
         entity:
           filter:
@@ -116,6 +173,11 @@ blueprint:
       name: Light for button 2 (one light per button mode)
       description: "Only used in the *One light per button* mode"
       default: ""
+      visible:
+        - field: target_type
+          value: light
+        - field: operating_mode
+          value: separate
       selector:
         entity:
           filter:
@@ -125,6 +187,11 @@ blueprint:
       name: Double press = full brightness (one light per button mode)
       description: "Only used in the *One light per button* mode. A double press sets the button's light to 100 %"
       default: true
+      visible:
+        - field: target_type
+          value: light
+        - field: operating_mode
+          value: separate
       selector:
         boolean:
 
@@ -135,6 +202,11 @@ blueprint:
         The blueprint uses it to remember whether the next hold dims up (on) or down (off), and flips it on every hold.
         Without a helper the direction follows the brightness: up, unless the light is already at 100 %.
       collapsed: true
+      visible:
+        - field: target_type
+          value: light
+        - field: operating_mode
+          value: separate
       input:
         direction_helper_1:
           name: Direction helper for button 1
@@ -154,6 +226,9 @@ blueprint:
     dimming_section:
       name: Dimming settings
       collapsed: true
+      visible:
+        field: target_type
+        value: light
       input:
         dim_step_pct:
           name: Dim step percentage
@@ -244,6 +319,18 @@ action:
       single_light: "{{ var_light_1 if trigger.id == 'button_1' else var_light_2 }}"
       dir_helper: "{{ var_helper_1 if trigger.id == 'button_1' else var_helper_2 }}"
   - choose:
+      # ---- power plugs: button 1 off, button 2 on (single press)
+      - conditions: "{{ var_mode == 'switch' and var_switches | length > 0 and trigger.id == 'button_1' and event_type == 'multi_press_1' }}"
+        sequence:
+          - action: switch.turn_off
+            target:
+              entity_id: !input switches
+      - conditions: "{{ var_mode == 'switch' and var_switches | length > 0 and trigger.id == 'button_2' and event_type == 'multi_press_1' }}"
+        sequence:
+          - action: switch.turn_on
+            target:
+              entity_id: !input switches
+
       # ---- button 1: on / brighter
       - conditions: "{{ var_mode == 'shared' and trigger.id == 'button_1' and event_type == 'multi_press_1' }}"
         sequence:
@@ -411,7 +498,11 @@ action:
 mode: restart
 
 variables:
-  var_mode: !input operating_mode
+  var_target: !input target_type
+  var_mode_input: !input operating_mode
+  # 'switch' for power plugs (disables every light branch), otherwise the chosen light mode
+  var_mode: "{{ var_mode_input if var_target == 'light' else 'switch' }}"
+  var_switches: !input switches
   var_lights: !input lights
   var_double_full: !input double_press_full
   var_light_1: !input light_button_1
