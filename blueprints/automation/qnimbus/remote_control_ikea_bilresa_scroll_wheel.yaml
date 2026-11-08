@@ -4,7 +4,7 @@ blueprint:
       Lets you run your own actions from the three channels of an IKEA Bilresa Matter scroll wheel remote, and use the scroll wheel to dim lights, change their colour or control a media player volume.
       Each channel has its own button actions and its own scroll wheel target and mode.
 
-      **Version:** 2026-11-01
+      **Version:** 2026-11-08
 
       Changelog entries marked ⚠️ may break automations that already use this blueprint. Check them before updating.
 
@@ -71,6 +71,7 @@ blueprint:
       <details>
       <summary>Changelog</summary>
 
+      - **2026-11-08**: the form only shows the inputs that apply: *Scroll wheel mode input_select* appears only for the mode `dynamic: choose from input_select`, and *User defined scroll wheel action* only for `user defined` and `dynamic: choose from input_select` (a dynamic `input_select` can select `user defined`). Existing automations keep working without changes. Needs Home Assistant 2026.11 or newer.
       - **2026-11-01**: added a short summary and a collapsible *How it works* section to the description (no functional changes).
       - **2026-10-31**: cleanup without functional changes: the 15 entity lookups of the remote are now one-line templates instead of 7-line loops (they return the first match or an empty value), the unused top-level `alias` is removed and the channel 1 evaluation mode description is formatted like channels 2 and 3.
       - **2026-10-31**: the color temperature and color hue scroll modes no longer need the helper scripts `script.light_color_temp_helper` and `script.light_color_hs_helper`: their logic is built into the blueprint, so a fresh import works without any extra setup. The behaviour is the same, except that scrolling the hue on a light without a known color (e.g. one that is off) now starts at hue 0 instead of raising a template error; the saturation sent to the light is now kept within 0..100, so a <Color saturation> of 0 no longer produces an invalid value. The scripts are no longer used by this blueprint; you can keep or delete them.
@@ -87,6 +88,8 @@ blueprint:
 
       **Credits:** based on the blueprint by [jhol-byte](https://gist.github.com/jhol-byte/b2731a4d2476f530d76b9ff409f7f3a4) (version 2026-04-06). Original discussion: [Home Assistant community](https://community.home-assistant.io/t/ikea-bilresa-scroll-wheel-blueprint-matter/965365)      
   domain: automation
+  homeassistant:
+    min_version: 2026.11.0
   source_url: https://github.com/qnimbus/homeassistant/blob/main/blueprints/automation/qnimbus/remote_control_ikea_bilresa_scroll_wheel.yaml
   
   # input selectors
@@ -168,6 +171,9 @@ blueprint:
                 domain:
                 - input_select
           default:
+          visible:
+            field: scroll_wheel_mode_ch1
+            value: "dynamic: choose from input_select"
           name: "Channel 1: Scroll wheel mode input_select"
           description: |-
             For scroll wheel mode <dynamic> only, leave empty otherwise.
@@ -190,6 +196,12 @@ blueprint:
             - for <instant> mode the 9 hidden sensor entities of Bilresa device have to be enabled (otherwise this channel falls back to <relaxed>)
         scroll_wheel_user_action_ch1:
           name: "Channel 1: User defined scroll wheel action"
+          visible:
+            field: scroll_wheel_mode_ch1
+            operator: in
+            value:
+              - "user defined"
+              - "dynamic: choose from input_select"
           description: |
             For scroll wheel mode <user defined> only
             Exposed variables:
@@ -265,6 +277,9 @@ blueprint:
                 domain:
                 - input_select
           default:
+          visible:
+            field: scroll_wheel_mode_ch2
+            value: "dynamic: choose from input_select"
           name: "Channel 2: Scroll wheel mode input_select"
           description: |-
             For scroll wheel mode <dynamic> only, leave empty otherwise.
@@ -287,6 +302,12 @@ blueprint:
             - for <instant> mode the 9 hidden sensor entities of Bilresa device have to be enabled (otherwise this channel falls back to <relaxed>)
         scroll_wheel_user_action_ch2:
           name: "Channel 2: User defined scroll wheel action"
+          visible:
+            field: scroll_wheel_mode_ch2
+            operator: in
+            value:
+              - "user defined"
+              - "dynamic: choose from input_select"
           description: |
             For scroll wheel mode <user defined> only
             Exposed variables:
@@ -363,6 +384,9 @@ blueprint:
                 domain:
                 - input_select
           default:
+          visible:
+            field: scroll_wheel_mode_ch3
+            value: "dynamic: choose from input_select"
           name: "Channel 3: Scroll wheel mode input_select"
           description: |-
             For scroll wheel mode <dynamic> only, leave empty otherwise.
@@ -385,6 +409,12 @@ blueprint:
             - for <instant> mode the 9 hidden sensor entities of Bilresa device have to be enabled (otherwise this channel falls back to <relaxed>)
         scroll_wheel_user_action_ch3:
           name: "Channel 3: User defined scroll wheel action"
+          visible:
+            field: scroll_wheel_mode_ch3
+            operator: in
+            value:
+              - "user defined"
+              - "dynamic: choose from input_select"
           description: |
             For scroll wheel mode <user defined> only
             Exposed variables:
