@@ -76,6 +76,7 @@ blueprint:
       <summary>Changelog</summary>
 
       - **2026-11-08**: new input *What do you control?* (*Lights* by default) with support for power plugs (`switch`): button 1 turns the switches off, button 2 turns them on. Inputs that do not apply to the choice are hidden (needs Home Assistant 2026.11). Existing automations keep working without changes.
+      - **2026-11-08**: the *Power plugs* list only shows switches from the Z-Wave JS, MQTT, Plugwise and Matter integrations.
       - **2026-11-01**: new option *Double press = full brightness* for the *One light per button* mode (default on).
       - **2026-11-01**: added a short summary and a collapsible *How it works* section to the description.
       - **2026-11-01**: new *Operating mode* input: besides the shared mode (unchanged, default) each button can control its own light (single press toggles, hold alternates between dimming up and down). New optional inputs: *Light for button 1/2* and *Hold direction helpers*. Existing automations keep working without changes.
@@ -113,7 +114,7 @@ blueprint:
               value: switch
     switches:
       name: Power plugs
-      description: "Switches controlled by the remote: button 1 turns them off, button 2 turns them on"
+      description: "Switches controlled by the remote: button 1 turns them off, button 2 turns them on. Only switches from Z-Wave JS, MQTT (Zigbee2MQTT), Plugwise and Matter are listed"
       default: []
       visible:
         field: target_type
@@ -121,8 +122,16 @@ blueprint:
       selector:
         entity:
           multiple: true
+          # only plug-like integrations, so Sonos / UniFi Protect / Cloud toggles do not clutter the list
           filter:
-            domain: switch
+            - domain: switch
+              integration: zwave_js
+            - domain: switch
+              integration: mqtt
+            - domain: switch
+              integration: plugwise
+            - domain: switch
+              integration: matter
 
     operating_mode:
       name: Operating mode
